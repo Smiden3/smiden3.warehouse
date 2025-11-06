@@ -80,24 +80,49 @@ const App: React.FC = () => {
   
   // State Initialization with localStorage
   const [products, setProducts] = useState<Product[]>(() => {
-    const savedProducts = localStorage.getItem('products');
-    return savedProducts ? JSON.parse(savedProducts) : initialProducts;
+    try {
+      const savedProducts = localStorage.getItem('products');
+      return savedProducts ? JSON.parse(savedProducts) : initialProducts;
+    } catch (error) {
+      console.error("Error parsing products from localStorage", error);
+      return initialProducts;
+    }
   });
   const [cart, setCart] = useState<CartItem[]>(() => {
-    const savedCart = localStorage.getItem('cart');
-    return savedCart ? JSON.parse(savedCart) : [];
+    try {
+      const savedCart = localStorage.getItem('cart');
+      return savedCart ? JSON.parse(savedCart) : [];
+    } catch (error) {
+      console.error("Error parsing cart from localStorage", error);
+      return [];
+    }
   });
   const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    const savedInvoices = localStorage.getItem('invoices');
-    return savedInvoices ? JSON.parse(savedInvoices) : [];
+    try {
+      const savedInvoices = localStorage.getItem('invoices');
+      return savedInvoices ? JSON.parse(savedInvoices) : [];
+    } catch (error) {
+      console.error("Error parsing invoices from localStorage", error);
+      return [];
+    }
   });
    const [receipts, setReceipts] = useState<Receipt[]>(() => {
-    const savedReceipts = localStorage.getItem('receipts');
-    return savedReceipts ? JSON.parse(savedReceipts) : [];
+    try {
+      const savedReceipts = localStorage.getItem('receipts');
+      return savedReceipts ? JSON.parse(savedReceipts) : [];
+    } catch (error) {
+      console.error("Error parsing receipts from localStorage", error);
+      return [];
+    }
   });
   const [ledger, setLedger] = useState<LedgerEntry[]>(() => {
-    const savedLedger = localStorage.getItem('ledger');
-    return savedLedger ? JSON.parse(savedLedger) : [];
+    try {
+      const savedLedger = localStorage.getItem('ledger');
+      return savedLedger ? JSON.parse(savedLedger) : [];
+    } catch (error) {
+      console.error("Error parsing ledger from localStorage", error);
+      return [];
+    }
   });
   
   // Save to localStorage whenever state changes
@@ -349,48 +374,57 @@ const App: React.FC = () => {
     if (!window.confirm('Вы уверены?')) return;
 
     const productToDelete = products.find(p => p.id === productId);
-
+    const newProducts = products.filter(p => p.id !== productId);
+    
     if (productToDelete) {
-        const entry: LedgerEntry = {
-            timestamp: new Date().toISOString(),
-            productId: productToDelete.id, productName: productToDelete.name, type: 'delete',
-            quantityChange: -productToDelete.quantity, beforeQuantity: productToDelete.quantity, afterQuantity: 0,
-        };
-        setLedger(l => [entry, ...l]);
+      const entry: LedgerEntry = {
+        timestamp: new Date().toISOString(),
+        productId: productToDelete.id,
+        productName: productToDelete.name,
+        type: 'delete',
+        quantityChange: -productToDelete.quantity,
+        beforeQuantity: productToDelete.quantity,
+        afterQuantity: 0,
+      };
+      setLedger(l => [entry, ...l]);
     }
-
-    setProducts(prev => prev.filter(p => p.id !== productId));
+    
+    setProducts(newProducts);
     setCart(prev => prev.filter(item => item.productId !== productId));
     setSelectedProducts(prev => prev.filter(id => id !== productId));
   }, [products]);
 
   const handleDeleteSelected = useCallback(() => {
     if (selectedProducts.length === 0 || !window.confirm(`Удалить ${selectedProducts.length} товар(ов)?`)) {
-        return;
+      return;
     }
 
     const productsToDeleteSet = new Set(selectedProducts);
     const newLedgerEntries: LedgerEntry[] = [];
-    
-    const remainingProducts = products.filter(p => {
-        if (productsToDeleteSet.has(p.id)) {
-            newLedgerEntries.push({
-                timestamp: new Date().toISOString(),
-                productId: p.id, productName: p.name, type: 'delete',
-                quantityChange: -p.quantity, beforeQuantity: p.quantity, afterQuantity: 0,
-            });
-            return false;
-        }
-        return true;
+
+    products.forEach(p => {
+      if (productsToDeleteSet.has(p.id)) {
+        newLedgerEntries.push({
+          timestamp: new Date().toISOString(),
+          productId: p.id,
+          productName: p.name,
+          type: 'delete',
+          quantityChange: -p.quantity,
+          beforeQuantity: p.quantity,
+          afterQuantity: 0,
+        });
+      }
     });
-    
+
+    const remainingProducts = products.filter(p => !productsToDeleteSet.has(p.id));
+
     if (newLedgerEntries.length > 0) {
-        setLedger(prevLedger => [...newLedgerEntries, ...prevLedger]);
+      setLedger(prevLedger => [...newLedgerEntries, ...prevLedger]);
     }
-    
     setProducts(remainingProducts);
     setCart(prevCart => prevCart.filter(item => !productsToDeleteSet.has(item.productId)));
     setSelectedProducts([]);
+    
   }, [products, selectedProducts]);
   
   const handleSaveProduct = useCallback((productData: Omit<Product, 'id' | 'photos'> & { id?: string; photos: string[] }) => {
@@ -407,11 +441,13 @@ const App: React.FC = () => {
       price: Number(productData.price) || 0,
     };
     
-    const newLedgerEntries: LedgerEntry[] = [];
     let newProducts: Product[];
+    const newLedgerEntries: LedgerEntry[] = [];
 
     if (productToSave.id) { // Editing existing product
       const oldProduct = products.find(p => p.id === productToSave.id);
+      newProducts = products.map(p => p.id === productToSave.id ? { ...p, ...productToSave } as Product : p);
+
       if (oldProduct && oldProduct.quantity !== productToSave.quantity) {
         newLedgerEntries.push({
           timestamp: new Date().toISOString(),
@@ -423,7 +459,6 @@ const App: React.FC = () => {
           afterQuantity: productToSave.quantity,
         });
       }
-      newProducts = products.map(p => p.id === productToSave.id ? { ...p, ...productToSave } as Product : p);
     } else { // Adding new product
       const categoryPrefix = productToSave.category.substring(0, 2).toUpperCase();
       let maxNum = 0;
@@ -438,6 +473,7 @@ const App: React.FC = () => {
       const newIdNumber = (maxNum + 1).toString().padStart(3, '0');
       const newId = `${categoryPrefix}-${newIdNumber}`;
       const newProduct = { ...productToSave, id: newId } as Product;
+      newProducts = [newProduct, ...products];
 
       if (newProduct.quantity > 0) {
         newLedgerEntries.push({
@@ -450,13 +486,12 @@ const App: React.FC = () => {
           afterQuantity: newProduct.quantity,
         });
       }
-      newProducts = [newProduct, ...products];
     }
     
+    setProducts(newProducts);
     if (newLedgerEntries.length > 0) {
       setLedger(l => [...newLedgerEntries, ...l]);
     }
-    setProducts(newProducts);
     
     setIsProductModalOpen(false);
   }, [products]);
@@ -484,7 +519,11 @@ const App: React.FC = () => {
   };
 
   const SortButton = ({ sortValue, label }: { sortValue: SortKey, label: string }) => (
-     <button onClick={() => handleSortChange(sortValue)} className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${sortKey === sortValue ? 'bg-light-accent text-white dark:bg-dark-accent' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>
+     <button 
+        type="button"
+        onClick={() => handleSortChange(sortValue)} 
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-sm transition-colors ${sortKey === sortValue ? 'bg-light-accent text-white dark:bg-dark-accent' : 'bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600'}`}
+     >
         <span>{label}</span>
         {sortKey === sortValue && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />)}
       </button>
@@ -500,23 +539,23 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center space-x-2">
             {user?.email && <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{user.email}</span>}
-             <button onClick={() => setIsLedgerModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Журнал операций">
+             <button type="button" onClick={() => setIsLedgerModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Журнал операций">
                 <RoundPendingActions className="h-6 w-6" />
             </button>
-             <button onClick={() => setIsReceiptModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Поступление товара">
+             <button type="button" onClick={() => setIsReceiptModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Поступление товара">
                 <ArchiveBoxArrowDownIcon className="h-6 w-6" />
             </button>
-            <button onClick={() => setIsInvoiceHistoryModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="История накладных">
+            <button type="button" onClick={() => setIsInvoiceHistoryModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="История накладных">
                 <HistoryIcon className="h-6 w-6" />
             </button>
-            <button onClick={() => setIsCartModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 relative" title="Корзина">
+            <button type="button" onClick={() => setIsCartModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 relative" title="Корзина">
                 <CartIcon className="h-6 w-6" />
                 {cart.length > 0 && <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs">{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>}
             </button>
-            <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Сменить тему">
+            <button type="button" onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Сменить тему">
               {theme === 'light' ? <MoonIcon className="h-6 w-6" /> : <SunIcon className="h-6 w-6" />}
             </button>
-             <button onClick={handleLogout} title="Выйти" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+             <button type="button" onClick={handleLogout} title="Выйти" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
                 <ExitFill className="h-6 w-6 text-red-500" />
             </button>
           </div>
@@ -537,7 +576,7 @@ const App: React.FC = () => {
           <div className="border-b border-gray-200 dark:border-gray-700 pb-4 mb-4">
               <h3 className="text-sm font-semibold text-gray-500 dark:text-gray-400 mb-3">Фильтр по категориям</h3>
               <div className="flex flex-wrap items-center gap-2">
-                  {categories.map(category => (<button key={category} onClick={() => setSelectedCategory(category)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategory === category ? 'bg-light-accent text-white dark:bg-dark-accent shadow' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>{category}</button>))}
+                  {categories.map(category => (<button key={category} type="button" onClick={() => setSelectedCategory(category)} className={`px-3 py-1.5 rounded-full text-sm font-medium transition-colors ${selectedCategory === category ? 'bg-light-accent text-white dark:bg-dark-accent shadow' : 'bg-gray-200 text-gray-700 dark:bg-gray-700 dark:text-gray-200 hover:bg-gray-300 dark:hover:bg-gray-600'}`}>{category}</button>))}
               </div>
           </div>
           {/* Search, Sort, View Controls */}
@@ -549,11 +588,19 @@ const App: React.FC = () => {
               <div className="flex items-center gap-3">
                 <input type="checkbox" checked={selectedProducts.length > 0 && paginatedProducts.length > 0 && paginatedProducts.every(p => selectedProducts.includes(p.id))} onChange={handleSelectAll} className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600" />
                 <span className="text-sm text-gray-500 dark:text-gray-400">{selectedProducts.length} выбрано</span>
-                {selectedProducts.length > 0 && <button onClick={handleDeleteSelected} className="text-sm text-red-500 hover:text-red-700 font-medium">Удалить</button>}
+                {selectedProducts.length > 0 && 
+                  <button 
+                    type="button"
+                    onClick={handleDeleteSelected} 
+                    className="px-3 py-1 rounded-lg bg-red-500 text-white text-sm font-medium hover:bg-red-600 transition-colors focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 dark:focus:ring-offset-dark-glass"
+                  >
+                    Удалить
+                  </button>
+                }
               </div>
               <div className="flex items-center gap-2">
-                <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-1"><button onClick={() => setViewMode('grid')} className={`p-2 rounded-md ${viewMode === 'grid' ? 'bg-white dark:bg-gray-500 shadow' : ''}`}><GridIcon className="h-5 w-5" /></button><button onClick={() => setViewMode('list')} className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-white dark:bg-gray-500 shadow' : ''}`}><ListIcon className="h-5 w-5" /></button></div>
-                <button onClick={handleOpenAddModal} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-accent dark:bg-dark-accent text-white font-semibold hover:opacity-90 transition-opacity"><PlusIcon className="h-5 w-5" /><span>Добавить</span></button>
+                <div className="flex items-center bg-gray-200 dark:bg-gray-700 rounded-lg p-1"><button type="button" onClick={() => setViewMode('grid')} className={`p-2 rounded-md ${viewMode === 'grid' ? 'bg-white dark:bg-gray-500 shadow' : ''}`}><GridIcon className="h-5 w-5" /></button><button type="button" onClick={() => setViewMode('list')} className={`p-2 rounded-md ${viewMode === 'list' ? 'bg-white dark:bg-gray-500 shadow' : ''}`}><ListIcon className="h-5 w-5" /></button></div>
+                <button type="button" onClick={handleOpenAddModal} className="flex items-center gap-2 px-4 py-2 rounded-lg bg-light-accent dark:bg-dark-accent text-white font-semibold hover:opacity-90 transition-opacity"><PlusIcon className="h-5 w-5" /><span>Добавить</span></button>
               </div>
           </div>
           
@@ -574,7 +621,7 @@ const App: React.FC = () => {
           {totalPages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Страница {currentPage} из {totalPages}</span>
-                <div className="flex items-center space-x-2"><button onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600"><ChevronLeftIcon className="h-5 w-5" /></button><button onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600"><ChevronRightIcon className="h-5 w-5" /></button></div>
+                <div className="flex items-center space-x-2"><button type="button" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600"><ChevronLeftIcon className="h-5 w-5" /></button><button type="button" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600"><ChevronRightIcon className="h-5 w-5" /></button></div>
             </div>
           )}
         </section>

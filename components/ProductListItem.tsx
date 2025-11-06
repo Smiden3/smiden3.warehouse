@@ -41,8 +41,10 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600"
         />
         <button 
+          type="button"
           onClick={() => onImageClick(product.photos, 0)} 
           className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-accent dark:focus:ring-dark-accent rounded-lg flex-shrink-0"
+          aria-label={`Просмотреть изображение ${product.name}`}
         >
           <img src={product.photos[0] || 'https://placehold.co/400x400/cccccc/FFFFFF/png?text=No+Image'} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
         </button>
@@ -74,20 +76,40 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
       
       {/* Actions */}
       <div className="hidden md:flex col-span-1 justify-end items-center space-x-2 pr-2">
-        <button onClick={() => onEdit(product)} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+        <button 
+          type="button" 
+          onClick={(e) => { e.stopPropagation(); onEdit(product); }} 
+          className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+          aria-label={`Редактировать ${product.name}`}
+        >
           <EditIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
         </button>
-        <button onClick={() => onDelete(product.id)} className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+        <button 
+          type="button" 
+          onClick={(e) => { e.stopPropagation(); onDelete(product.id); }} 
+          className="p-1.5 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+          aria-label={`Удалить ${product.name}`}
+        >
           <TrashIcon className="h-5 w-5 text-red-500" />
         </button>
       </div>
 
        {/* Actions for mobile */}
        <div className="md:hidden col-span-12 flex justify-end items-center gap-2 mt-2 border-t pt-2 border-gray-200 dark:border-gray-700">
-            <button onClick={() => onEdit(product)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+            <button 
+              type="button" 
+              onClick={(e) => { e.stopPropagation(); onEdit(product); }} 
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+              aria-label={`Редактировать ${product.name}`}
+            >
                 <EditIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
             </button>
-            <button onClick={() => onDelete(product.id)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+            <button 
+              type="button" 
+              onClick={(e) => { e.stopPropagation(); onDelete(product.id); }} 
+              className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700"
+              aria-label={`Удалить ${product.name}`}
+            >
                 <TrashIcon className="h-5 w-5 text-red-500" />
             </button>
         </div>

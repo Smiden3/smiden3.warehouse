@@ -67,10 +67,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         />
       </div>
       <div className="absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button onClick={() => onEdit(product)} className="p-1.5 rounded-full bg-white/70 dark:bg-black/50 hover:bg-white dark:hover:bg-black/70 backdrop-blur-sm">
+        <button 
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onEdit(product); }} 
+          className="p-1.5 rounded-full bg-white/70 dark:bg-black/50 hover:bg-white dark:hover:bg-black/70 backdrop-blur-sm"
+          aria-label={`Редактировать ${product.name}`}
+        >
           <EditIcon className="h-4 w-4 text-gray-700 dark:text-gray-200" />
         </button>
-        <button onClick={() => onDelete(product.id)} className="p-1.5 rounded-full bg-white/70 dark:bg-black/50 hover:bg-white dark:hover:bg-black/70 backdrop-blur-sm">
+        <button 
+          type="button"
+          onClick={(e) => { e.stopPropagation(); onDelete(product.id); }} 
+          className="p-1.5 rounded-full bg-white/70 dark:bg-black/50 hover:bg-white dark:hover:bg-black/70 backdrop-blur-sm"
+          aria-label={`Удалить ${product.name}`}
+        >
           <TrashIcon className="h-4 w-4 text-red-500" />
         </button>
       </div>
@@ -107,6 +117,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             <div className="absolute bottom-2 left-0 right-0 z-10 flex justify-center items-center gap-2">
                 {product.photos.map((_, index) => (
                 <button
+                    type="button"
                     key={index}
                     onClick={(e) => {
                         e.stopPropagation();

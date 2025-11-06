@@ -137,11 +137,11 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
           <div className="grid grid-cols-2 gap-4">
              <div>
                 <label htmlFor="quantity" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Количество</label>
-                <input type="number" name="quantity" id="quantity" value={formData.quantity} onChange={handleChange} onFocus={handleFocus} onBlur={handleBlur} required min="0" className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+                <input type="number" name="quantity" id="quantity" value={formData.quantity} onChange={handleChange} onFocus={handleFocus} onBlur={handleBlur} required min="0" inputMode="numeric" className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
              </div>
              <div>
                 <label htmlFor="price" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Цена (₽)</label>
-                <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} onFocus={handleFocus} onBlur={handleBlur} required min="0" className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+                <input type="number" name="price" id="price" value={formData.price} onChange={handleChange} onFocus={handleFocus} onBlur={handleBlur} required min="0" inputMode="numeric" className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
              </div>
           </div>
           <div>
