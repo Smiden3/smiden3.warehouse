@@ -115,3 +115,9 @@ export const HistoryIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
 export const SaveArrowIcon: React.FC<SVGProps<SVGSVGElement>> = (props) => (
   <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 512 512" {...props}><title>Save-arrow SVG Icon</title><path fill="currentColor" d="M224 30v256h-64l96 128l96-128h-64V30zM32 434v48h448v-48z"></path></svg>
 );
+
+export const LogoutIcon: React.FC<React.SVGProps<SVGSVGElement>> = (props) => (
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" {...props}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0 0 13.5 3h-6a2.25 2.25 0 0 0 -2.25 2.25v13.5A2.25 2.25 0 0 0 7.5 21h6a2.25 2.25 0 0 0 2.25 -2.25V15m-3-3l3-3m0 0l-3-3m3 3H3" />
+    </svg>
+);

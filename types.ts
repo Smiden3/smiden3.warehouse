@@ -1,4 +1,7 @@
+import type { User } from 'firebase/auth';
+
 export type Theme = 'light' | 'dark';
+export type FirebaseUser = User;
 
 export interface Product {
   id: string;

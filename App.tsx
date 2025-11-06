@@ -1,6 +1,10 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
 import type { Product, SortKey, SortDirection, CartItem, Invoice, InvoiceItem } from './types';
 import { useTheme } from './hooks/useTheme';
+import { useAuth } from './hooks/useAuth';
+import { auth } from './firebase';
+import { signOut } from 'firebase/auth';
+import { Auth } from './components/Auth';
 import { DashboardWidget } from './components/DashboardWidget';
 import { ProductCard } from './components/ProductCard';
 import { ProductListItem } from './components/ProductListItem';
@@ -15,7 +19,7 @@ import { generateInvoicePDF } from './utils/pdfGenerator';
 import {
   SunIcon, MoonIcon, GridIcon, ListIcon, PlusIcon,
   BoxIcon, WarningIcon, MoneyIcon, ChevronLeftIcon, ChevronRightIcon,
-  ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon
+  ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon, LogoutIcon
 } from './constants';
 
 const initialProducts: Product[] = [
@@ -54,6 +58,20 @@ interface LightboxState {
 }
 
 const App: React.FC = () => {
+  const { user, loading } = useAuth();
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex items-center justify-center">
+        <div className="text-xl font-semibold text-light-text dark:text-dark-text">Загрузка...</div>
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Auth />;
+  }
+  
   const { theme, toggleTheme } = useTheme();
   
   // State Initialization with localStorage
@@ -98,7 +116,8 @@ const App: React.FC = () => {
   
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(products.map(p => p.category))];
-    return ['Все категории', ...uniqueCategories.sort((a, b) => a.localeCompare(b, 'ru'))];
+    // FIX: Explicitly convert to string for localeCompare to prevent type errors with data from localStorage.
+    return ['Все категории', ...uniqueCategories.sort((a, b) => String(a).localeCompare(String(b), 'ru'))];
   }, [products]);
 
   const filteredProducts = useMemo(() =>
@@ -258,6 +277,10 @@ const App: React.FC = () => {
     setCart([]);
     setIsCartModalOpen(false);
   };
+
+  const handleLogout = () => {
+    signOut(auth).catch(error => console.error("Logout Error:", error));
+  };
   
   const handleSelectProduct = useCallback((productId: string) => {
     setSelectedProducts(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
@@ -344,6 +367,7 @@ const App: React.FC = () => {
             <h1 className="text-2xl font-bold">СКЛАД/仓库</h1>
           </div>
           <div className="flex items-center space-x-2">
+            {user?.email && <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{user.email}</span>}
             <button onClick={() => setIsInvoiceHistoryModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
                 <HistoryIcon className="h-6 w-6" />
             </button>
@@ -353,6 +377,9 @@ const App: React.FC = () => {
             </button>
             <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
               {theme === 'light' ? <MoonIcon className="h-6 w-6" /> : <SunIcon className="h-6 w-6" />}
+            </button>
+             <button onClick={handleLogout} title="Выйти" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <LogoutIcon className="h-6 w-6 text-red-500" />
             </button>
           </div>
         </div>
