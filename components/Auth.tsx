@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { auth } from '../firebase';
 import { createUserWithEmailAndPassword, signInWithEmailAndPassword, setPersistence, browserLocalPersistence, sendPasswordResetEmail } from 'firebase/auth';
 import { useTheme } from '../hooks/useTheme';
+import { Eye, EyeOff } from '../constants';
 
 const logoUrl = 'https://i.postimg.cc/1tdy0QLp/reve-v1.png';
 
@@ -10,6 +11,7 @@ export const Auth: React.FC = () => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'reset'>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [message, setMessage] = useState('');
   const [loading, setLoading] = useState(false);
@@ -176,17 +178,25 @@ export const Auth: React.FC = () => {
                 <label htmlFor="password" className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                   Пароль
                 </label>
-                <div className="mt-1">
+                <div className="mt-1 relative">
                   <input
                     id="password"
                     name="password"
-                    type="password"
+                    type={showPassword ? 'text' : 'password'}
                     autoComplete="current-password"
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="w-full px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 dark:border-gray-600 border focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"
+                    className="w-full px-3 py-2 pr-10 rounded-lg bg-gray-100 dark:bg-gray-700 dark:border-gray-600 border focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent"
                   />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute inset-y-0 right-0 pr-3 flex items-center text-gray-500 dark:text-gray-400 hover:text-light-text dark:hover:text-dark-text"
+                    aria-label={showPassword ? "Скрыть пароль" : "Показать пароль"}
+                  >
+                    {showPassword ? <Eye className="h-5 w-5" /> : <EyeOff className="h-5 w-5" />}
+                  </button>
                 </div>
               </div>
 
