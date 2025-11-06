@@ -44,11 +44,11 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
           onClick={() => onImageClick(product.photos, 0)} 
           className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-accent dark:focus:ring-dark-accent rounded-lg flex-shrink-0"
         >
-          <img src={product.photos[0]} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
+          <img src={product.photos[0] || 'https://placehold.co/400x400/cccccc/FFFFFF/png?text=No+Image'} alt={product.name} className="w-12 h-12 object-cover rounded-lg" />
         </button>
         <div>
-          <p className="font-semibold text-light-text dark:text-dark-text">{product.name}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400">{product.id}</p>
+          <p className="font-semibold text-light-text dark:text-dark-text truncate">{product.name}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{product.id}</p>
         </div>
       </div>
       
@@ -84,9 +84,13 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
 
        {/* Actions for mobile */}
        <div className="md:hidden col-span-12 flex justify-end items-center gap-2 mt-2 border-t pt-2 border-gray-200 dark:border-gray-700">
-            <button onClick={() => onEdit(product)} className="flex-1 text-sm py-2 rounded-lg bg-gray-200 dark:bg-gray-700">Редактировать</button>
-            <button onClick={() => onDelete(product.id)} className="flex-1 text-sm py-2 rounded-lg bg-red-500/10 text-red-500">Удалить</button>
-       </div>
+            <button onClick={() => onEdit(product)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <EditIcon className="h-5 w-5 text-gray-600 dark:text-gray-300" />
+            </button>
+            <button onClick={() => onDelete(product.id)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+                <TrashIcon className="h-5 w-5 text-red-500" />
+            </button>
+        </div>
     </div>
   );
 };

@@ -1,5 +1,5 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Product, SortKey, SortDirection, CartItem, Invoice, InvoiceItem } from './types';
+import type { Product, SortKey, SortDirection, CartItem, Invoice, InvoiceItem, Receipt, ReceiptItem, LedgerEntry } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useAuth } from './hooks/useAuth';
 import { auth } from './firebase';
@@ -15,11 +15,13 @@ import { InvoiceHistoryModal } from './components/InvoiceHistoryModal';
 import { InvoiceDetailModal } from './components/InvoiceDetailModal';
 import { RevenueModal } from './components/RevenueModal';
 import { ImageLightbox } from './components/ImageLightbox';
+import { ReceiptModal } from './components/ReceiptModal';
+import { LedgerModal } from './components/LedgerModal';
 import { generateInvoicePDF } from './utils/pdfGenerator';
 import {
   SunIcon, MoonIcon, GridIcon, ListIcon, PlusIcon,
   BoxIcon, WarningIcon, MoneyIcon, ChevronLeftIcon, ChevronRightIcon,
-  ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon, ExitFill
+  ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon, ExitFill, ArchiveBoxArrowDownIcon, RoundPendingActions
 } from './constants';
 
 const initialProducts: Product[] = [
@@ -57,6 +59,8 @@ interface LightboxState {
   currentIndex: number;
 }
 
+const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`;
+
 const App: React.FC = () => {
   const { user, loading } = useAuth();
 
@@ -87,11 +91,21 @@ const App: React.FC = () => {
     const savedInvoices = localStorage.getItem('invoices');
     return savedInvoices ? JSON.parse(savedInvoices) : [];
   });
+   const [receipts, setReceipts] = useState<Receipt[]>(() => {
+    const savedReceipts = localStorage.getItem('receipts');
+    return savedReceipts ? JSON.parse(savedReceipts) : [];
+  });
+  const [ledger, setLedger] = useState<LedgerEntry[]>(() => {
+    const savedLedger = localStorage.getItem('ledger');
+    return savedLedger ? JSON.parse(savedLedger) : [];
+  });
   
   // Save to localStorage whenever state changes
   useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
   useEffect(() => { localStorage.setItem('cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('invoices', JSON.stringify(invoices)); }, [invoices]);
+  useEffect(() => { localStorage.setItem('receipts', JSON.stringify(receipts)); }, [receipts]);
+  useEffect(() => { localStorage.setItem('ledger', JSON.stringify(ledger)); }, [ledger]);
   
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -109,14 +123,13 @@ const App: React.FC = () => {
   const [isLowStockModalOpen, setIsLowStockModalOpen] = useState(false);
   const [isCartModalOpen, setIsCartModalOpen] = useState(false);
   const [isInvoiceHistoryModalOpen, setIsInvoiceHistoryModalOpen] = useState(false);
+  const [isReceiptModalOpen, setIsReceiptModalOpen] = useState(false);
+  const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
 
-  const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`;
-  
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(products.map(p => p.category))];
-    // FIX: Explicitly convert to string for localeCompare to prevent type errors with data from localStorage.
     return ['Все категории', ...uniqueCategories.sort((a, b) => String(a).localeCompare(String(b), 'ru'))];
   }, [products]);
 
@@ -160,7 +173,6 @@ const App: React.FC = () => {
     const now = new Date();
     const invoicesSorted = [...invoices].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
 
-    // Daily Stats (Last 7 days)
     const dailyData: { label: string; value: number }[] = [];
     let dailyTotal = 0;
     const weekDayFormatter = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
@@ -185,7 +197,6 @@ const App: React.FC = () => {
         }
     });
 
-    // Monthly Stats (Last 12 months)
     const monthlyData: { label: string; value: number }[] = [];
     let monthlyTotal = 0;
     const monthFormatter = new Intl.DateTimeFormat('ru-RU', { month: 'short' });
@@ -215,14 +226,13 @@ const App: React.FC = () => {
     return { dailyData, dailyTotal, monthlyData, monthlyTotal, totalRevenue };
   }, [invoices]);
 
-  const handleCartChange = (productId: string, newQuantity: number) => {
-    const product = products.find(p => p.id === productId);
-    if (!product) return;
-    
-    // Clamp quantity to stock
-    const quantity = Math.max(0, Math.min(newQuantity, product.quantity));
-
+  const handleCartChange = useCallback((productId: string, newQuantity: number) => {
     setCart(prevCart => {
+      const product = products.find(p => p.id === productId);
+      if (!product) return prevCart;
+
+      const quantity = Math.max(0, Math.min(newQuantity, product.quantity));
+
       const existingItemIndex = prevCart.findIndex(item => item.productId === productId);
       if (quantity === 0) {
         return prevCart.filter(item => item.productId !== productId);
@@ -234,49 +244,86 @@ const App: React.FC = () => {
       }
       return [...prevCart, { productId, quantity }];
     });
-  };
+  }, [products]);
   
-  const handleCreateInvoice = () => {
+ const handleCreateInvoice = useCallback(() => {
     if (cart.length === 0) return;
 
-    const invoiceItems: InvoiceItem[] = cart.map(item => {
-        const product = products.find(p => p.id === item.productId)!;
-        return {
-            id: product.id,
-            name: product.name,
-            quantity: item.quantity,
-            price: product.price,
-        };
+    const newInvoiceItems: InvoiceItem[] = [];
+    const newLedgerEntries: LedgerEntry[] = [];
+    const timestamp = new Date().toISOString();
+
+    const updatedProducts = products.map(p => {
+        const itemInCart = cart.find(item => item.productId === p.id);
+        if (itemInCart) {
+            newInvoiceItems.push({ id: p.id, name: p.name, quantity: itemInCart.quantity, price: p.price });
+            const beforeQuantity = p.quantity;
+            const afterQuantity = p.quantity - itemInCart.quantity;
+            newLedgerEntries.push({
+                timestamp, productId: p.id, productName: p.name, type: 'invoice',
+                quantityChange: -itemInCart.quantity, beforeQuantity, afterQuantity,
+            });
+            return { ...p, quantity: afterQuantity };
+        }
+        return p;
     });
 
     const newInvoice: Invoice = {
         id: Date.now().toString().slice(-6),
-        createdAt: new Date().toISOString(),
-        items: invoiceItems,
-        total: invoiceItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
+        createdAt: timestamp,
+        items: newInvoiceItems,
+        total: newInvoiceItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
     };
-
-    setInvoices(prev => [...prev, newInvoice]);
     
-    // Update stock
-    setProducts(prevProducts => {
-        const newProducts = [...prevProducts];
-        newInvoice.items.forEach(item => {
-            const productIndex = newProducts.findIndex(p => p.id === item.id);
-            if (productIndex > -1) {
-                newProducts[productIndex].quantity -= item.quantity;
-            }
-        });
-        return newProducts;
-    });
+    setProducts(updatedProducts);
+    setInvoices(prev => [...prev, newInvoice]);
+    setLedger(prev => [...newLedgerEntries, ...prev]);
+    setCart([]);
 
     if (shouldDownloadPdf) {
-      generateInvoicePDF(newInvoice);
+        generateInvoicePDF(newInvoice);
+    }
+    setIsCartModalOpen(false);
+}, [products, cart, shouldDownloadPdf]);
+  
+  const handleCreateReceipt = useCallback((itemsToReceive: {productId: string, quantity: number}[]) => {
+    if (itemsToReceive.length === 0) return;
+
+    const timestamp = new Date().toISOString();
+    const receiptItems: ReceiptItem[] = [];
+    const newLedgerEntries: LedgerEntry[] = [];
+
+    const updatedProducts = products.map(p => {
+      const itemToReceive = itemsToReceive.find(item => item.productId === p.id);
+      if (itemToReceive && itemToReceive.quantity > 0) {
+        const beforeQuantity = p.quantity;
+        const newQuantity = beforeQuantity + itemToReceive.quantity;
+        receiptItems.push({
+          productId: p.id, name: p.name,
+          quantityAdded: itemToReceive.quantity, newQuantity: newQuantity
+        });
+        newLedgerEntries.push({
+          timestamp, productId: p.id, productName: p.name, type: 'receipt',
+          quantityChange: itemToReceive.quantity, beforeQuantity: beforeQuantity, afterQuantity: newQuantity,
+        });
+        return { ...p, quantity: newQuantity };
+      }
+      return p;
+    });
+
+    if (receiptItems.length > 0) {
+        const newReceipt: Receipt = {
+            id: `receipt-${Date.now().toString().slice(-6)}`,
+            createdAt: timestamp,
+            items: receiptItems
+        };
+        setProducts(updatedProducts);
+        setReceipts(prev => [newReceipt, ...prev]);
+        setLedger(prev => [...newLedgerEntries, ...prev]);
     }
     
-    setCart([]);
-    setIsCartModalOpen(false);
-  };
+    setIsReceiptModalOpen(false);
+  }, [products]);
 
   const handleLogout = () => {
     signOut(auth).catch(error => console.error("Logout Error:", error));
@@ -285,6 +332,7 @@ const App: React.FC = () => {
   const handleSelectProduct = useCallback((productId: string) => {
     setSelectedProducts(prev => prev.includes(productId) ? prev.filter(id => id !== productId) : [...prev, productId]);
   }, []);
+
   const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.checked) setSelectedProducts(paginatedProducts.map(p => p.id));
     else setSelectedProducts([]);
@@ -296,15 +344,56 @@ const App: React.FC = () => {
   };
   const handleOpenEditModal = (product: Product) => { setProductToEdit(product); setIsProductModalOpen(true); };
   const handleOpenAddModal = () => { setProductToEdit(null); setIsProductModalOpen(true); };
-  const handleDeleteProduct = (productId: string) => {
-    if (window.confirm('Вы уверены?')) setProducts(prev => prev.filter(p => p.id !== productId));
-  };
-  const handleDeleteSelected = () => {
-    if (selectedProducts.length === 0 || !window.confirm(`Удалить ${selectedProducts.length} товар(ов)?`)) return;
-    setProducts(prev => prev.filter(p => !selectedProducts.includes(p.id)));
+  
+  const handleDeleteProduct = useCallback((productId: string) => {
+    if (!window.confirm('Вы уверены?')) return;
+
+    const productToDelete = products.find(p => p.id === productId);
+
+    if (productToDelete) {
+        const entry: LedgerEntry = {
+            timestamp: new Date().toISOString(),
+            productId: productToDelete.id, productName: productToDelete.name, type: 'delete',
+            quantityChange: -productToDelete.quantity, beforeQuantity: productToDelete.quantity, afterQuantity: 0,
+        };
+        setLedger(l => [entry, ...l]);
+    }
+
+    setProducts(prev => prev.filter(p => p.id !== productId));
+    setCart(prev => prev.filter(item => item.productId !== productId));
+    setSelectedProducts(prev => prev.filter(id => id !== productId));
+  }, [products]);
+
+  const handleDeleteSelected = useCallback(() => {
+    if (selectedProducts.length === 0 || !window.confirm(`Удалить ${selectedProducts.length} товар(ов)?`)) {
+        return;
+    }
+
+    const productsToDeleteSet = new Set(selectedProducts);
+    const newLedgerEntries: LedgerEntry[] = [];
+    
+    const remainingProducts = products.filter(p => {
+        if (productsToDeleteSet.has(p.id)) {
+            newLedgerEntries.push({
+                timestamp: new Date().toISOString(),
+                productId: p.id, productName: p.name, type: 'delete',
+                quantityChange: -p.quantity, beforeQuantity: p.quantity, afterQuantity: 0,
+            });
+            return false;
+        }
+        return true;
+    });
+    
+    if (newLedgerEntries.length > 0) {
+        setLedger(prevLedger => [...newLedgerEntries, ...prevLedger]);
+    }
+    
+    setProducts(remainingProducts);
+    setCart(prevCart => prevCart.filter(item => !productsToDeleteSet.has(item.productId)));
     setSelectedProducts([]);
-  };
-  const handleSaveProduct = (productData: Omit<Product, 'id' | 'photos'> & { id?: string; photos: string[] }) => {
+  }, [products, selectedProducts]);
+  
+  const handleSaveProduct = useCallback((productData: Omit<Product, 'id' | 'photos'> & { id?: string; photos: string[] }) => {
     const finalPhotos = productData.photos.filter(p => p && p.trim() !== '');
     if (finalPhotos.length === 0) {
         alert('Необходимо указать хотя бы одну фотографию.');
@@ -314,20 +403,63 @@ const App: React.FC = () => {
     const productToSave = { 
       ...productData, 
       photos: finalPhotos,
-      // Ensure numeric fields are numbers
       quantity: Number(productData.quantity) || 0,
       price: Number(productData.price) || 0,
     };
     
-    if (productToSave.id) {
-        setProducts(prev => prev.map(p => p.id === productToSave.id ? { ...p, ...productToSave } as Product : p));
-        setIsProductModalOpen(false);
-    } else {
-        const newProduct = { ...productToSave, id: `item-${Date.now()}` };
-        setProducts(prev => [newProduct as Product, ...prev]);
-        // Do not close modal, form is cleared inside component
+    const newLedgerEntries: LedgerEntry[] = [];
+    let newProducts: Product[];
+
+    if (productToSave.id) { // Editing existing product
+      const oldProduct = products.find(p => p.id === productToSave.id);
+      if (oldProduct && oldProduct.quantity !== productToSave.quantity) {
+        newLedgerEntries.push({
+          timestamp: new Date().toISOString(),
+          productId: oldProduct.id,
+          productName: productToSave.name,
+          type: 'edit',
+          quantityChange: productToSave.quantity - oldProduct.quantity,
+          beforeQuantity: oldProduct.quantity,
+          afterQuantity: productToSave.quantity,
+        });
+      }
+      newProducts = products.map(p => p.id === productToSave.id ? { ...p, ...productToSave } as Product : p);
+    } else { // Adding new product
+      const categoryPrefix = productToSave.category.substring(0, 2).toUpperCase();
+      let maxNum = 0;
+      products.forEach(p => {
+        if (p.id.startsWith(categoryPrefix + '-')) {
+          const numPart = parseInt(p.id.split('-')[1], 10);
+          if (!isNaN(numPart) && numPart > maxNum) {
+            maxNum = numPart;
+          }
+        }
+      });
+      const newIdNumber = (maxNum + 1).toString().padStart(3, '0');
+      const newId = `${categoryPrefix}-${newIdNumber}`;
+      const newProduct = { ...productToSave, id: newId } as Product;
+
+      if (newProduct.quantity > 0) {
+        newLedgerEntries.push({
+          timestamp: new Date().toISOString(),
+          productId: newProduct.id,
+          productName: newProduct.name,
+          type: 'receipt',
+          quantityChange: newProduct.quantity,
+          beforeQuantity: 0,
+          afterQuantity: newProduct.quantity,
+        });
+      }
+      newProducts = [newProduct, ...products];
     }
-  };
+    
+    if (newLedgerEntries.length > 0) {
+      setLedger(l => [...newLedgerEntries, ...l]);
+    }
+    setProducts(newProducts);
+    
+    setIsProductModalOpen(false);
+  }, [products]);
   
   const handleImageClick = (images: string[], startIndex: number) => {
     setLightboxState({ images, currentIndex: startIndex });
@@ -368,14 +500,20 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center space-x-2">
             {user?.email && <span className="hidden sm:inline text-sm text-gray-500 dark:text-gray-400">{user.email}</span>}
-            <button onClick={() => setIsInvoiceHistoryModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+             <button onClick={() => setIsLedgerModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Журнал операций">
+                <RoundPendingActions className="h-6 w-6" />
+            </button>
+             <button onClick={() => setIsReceiptModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Поступление товара">
+                <ArchiveBoxArrowDownIcon className="h-6 w-6" />
+            </button>
+            <button onClick={() => setIsInvoiceHistoryModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="История накладных">
                 <HistoryIcon className="h-6 w-6" />
             </button>
-            <button onClick={() => setIsCartModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 relative">
+            <button onClick={() => setIsCartModalOpen(true)} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700 relative" title="Корзина">
                 <CartIcon className="h-6 w-6" />
                 {cart.length > 0 && <span className="absolute top-0 right-0 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-white text-xs">{cart.reduce((acc, item) => acc + item.quantity, 0)}</span>}
             </button>
-            <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
+            <button onClick={toggleTheme} className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700" title="Сменить тему">
               {theme === 'light' ? <MoonIcon className="h-6 w-6" /> : <SunIcon className="h-6 w-6" />}
             </button>
              <button onClick={handleLogout} title="Выйти" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
@@ -409,7 +547,7 @@ const App: React.FC = () => {
           </div>
           <div className="flex items-center justify-between gap-2 mb-6">
               <div className="flex items-center gap-3">
-                <input type="checkbox" checked={selectedProducts.length > 0 && paginatedProducts.length > 0 && selectedProducts.length === paginatedProducts.length} onChange={handleSelectAll} className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600" />
+                <input type="checkbox" checked={selectedProducts.length > 0 && paginatedProducts.length > 0 && paginatedProducts.every(p => selectedProducts.includes(p.id))} onChange={handleSelectAll} className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600" />
                 <span className="text-sm text-gray-500 dark:text-gray-400">{selectedProducts.length} выбрано</span>
                 {selectedProducts.length > 0 && <button onClick={handleDeleteSelected} className="text-sm text-red-500 hover:text-red-700 font-medium">Удалить</button>}
               </div>
@@ -461,6 +599,17 @@ const App: React.FC = () => {
         onCreateInvoice={handleCreateInvoice} 
         shouldDownloadPdf={shouldDownloadPdf}
         onDownloadToggle={setShouldDownloadPdf}
+      />
+      <ReceiptModal
+        isOpen={isReceiptModalOpen}
+        onClose={() => setIsReceiptModalOpen(false)}
+        products={products}
+        onCreateReceipt={handleCreateReceipt}
+      />
+      <LedgerModal
+        isOpen={isLedgerModalOpen}
+        onClose={() => setIsLedgerModalOpen(false)}
+        ledger={ledger}
       />
       <InvoiceHistoryModal isOpen={isInvoiceHistoryModalOpen} onClose={() => setIsInvoiceHistoryModalOpen(false)} invoices={invoices} onViewInvoice={(invoice) => setViewingInvoice(invoice)} />
       <InvoiceDetailModal isOpen={!!viewingInvoice} onClose={() => setViewingInvoice(null)} invoice={viewingInvoice} />

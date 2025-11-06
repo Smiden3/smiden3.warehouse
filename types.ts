@@ -31,6 +31,28 @@ export interface Invoice {
   total: number;
 }
 
+export interface ReceiptItem {
+  productId: string;
+  name: string;
+  quantityAdded: number;
+  newQuantity: number;
+}
+
+export interface Receipt {
+  id: string;
+  createdAt: string;
+  items: ReceiptItem[];
+}
+
+export interface LedgerEntry {
+  timestamp: string; // ISO string
+  productId: string;
+  productName: string;
+  type: 'invoice' | 'receipt' | 'edit' | 'delete';
+  quantityChange: number;
+  beforeQuantity: number;
+  afterQuantity: number;
+}
 
 export type SortKey = 'default' | 'price' | 'quantity' | 'name';
 export type SortDirection = 'asc' | 'desc';
