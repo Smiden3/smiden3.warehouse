@@ -43,12 +43,27 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       shadow-md hover:shadow-xl dark:shadow-lg dark:shadow-black/20 dark:hover:shadow-black/30
       ${isSelected ? 'ring-2 ring-light-accent dark:ring-dark-accent' : ''}
     `}>
-      <div className="absolute top-2 left-2 z-20">
+      <div
+        className={`
+          absolute top-0 left-0 z-20 h-10 w-10 cursor-pointer
+          flex items-center justify-center
+          transition-all duration-300 rounded-br-xl
+          group-hover:bg-black/10 dark:group-hover:bg-white/20
+          ${isSelected ? 'opacity-100' : 'opacity-0 group-hover:opacity-100'}
+        `}
+        onClick={(e) => {
+            e.stopPropagation();
+            onSelect(product.id);
+        }}
+        role="button"
+        aria-label={`Выбрать ${product.name}`}
+      >
         <input
           type="checkbox"
           checked={isSelected}
-          onChange={() => onSelect(product.id)}
-          className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600"
+          readOnly
+          tabIndex={-1}
+          className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600 pointer-events-none"
         />
       </div>
       <div className="absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">

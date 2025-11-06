@@ -19,7 +19,7 @@ import { generateInvoicePDF } from './utils/pdfGenerator';
 import {
   SunIcon, MoonIcon, GridIcon, ListIcon, PlusIcon,
   BoxIcon, WarningIcon, MoneyIcon, ChevronLeftIcon, ChevronRightIcon,
-  ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon, LogoutIcon
+  ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon, ExitFill
 } from './constants';
 
 const initialProducts: Product[] = [
@@ -379,7 +379,7 @@ const App: React.FC = () => {
               {theme === 'light' ? <MoonIcon className="h-6 w-6" /> : <SunIcon className="h-6 w-6" />}
             </button>
              <button onClick={handleLogout} title="Выйти" className="p-2 rounded-full hover:bg-gray-200 dark:hover:bg-gray-700">
-                <LogoutIcon className="h-6 w-6 text-red-500" />
+                <ExitFill className="h-6 w-6 text-red-500" />
             </button>
           </div>
         </div>
