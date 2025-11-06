@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { Product } from '../types';
+import { PhotoIcon } from '../constants';
 
 interface ProductModalProps {
   isOpen: boolean;
@@ -29,9 +30,11 @@ const initialFormState: FormDataState = {
 
 export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onSave, productToEdit, allCategories }) => {
   const [formData, setFormData] = useState<FormDataState>(initialFormState);
+  const [imageErrors, setImageErrors] = useState([false, false]);
 
   useEffect(() => {
     if (isOpen) {
+        setImageErrors([false, false]);
         if (productToEdit) {
           setFormData({
             name: productToEdit.name,
@@ -51,10 +54,23 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
 
   if (!isOpen) return null;
 
+  const handleImageError = (index: number) => {
+    setImageErrors(prev => {
+      const newErrors = [...prev];
+      newErrors[index] = true;
+      return newErrors;
+    });
+  };
+
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
      if (name === 'photo1' || name === 'photo2') {
         const index = name === 'photo1' ? 0 : 1;
+        setImageErrors(prev => {
+            const newErrors = [...prev];
+            newErrors[index] = false;
+            return newErrors;
+        });
         setFormData(prev => {
             const newPhotos = [...prev.photos];
             newPhotos[index] = value;
@@ -107,6 +123,21 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
     }
   };
 
+  const ImagePreview: React.FC<{ url: string; index: number }> = ({ url, index }) => (
+    <div className="w-20 h-20 flex-shrink-0 rounded-lg bg-gray-100 dark:bg-gray-700 flex items-center justify-center border-2 border-dashed border-gray-300 dark:border-gray-600">
+      {url && !imageErrors[index] ? (
+        <img
+          src={url}
+          alt={`Предпросмотр фото ${index + 1}`}
+          className="w-full h-full object-cover rounded-lg"
+          onError={() => handleImageError(index)}
+        />
+      ) : (
+        <PhotoIcon className="h-8 w-8 text-gray-400 dark:text-gray-500" />
+      )}
+    </div>
+  );
+
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center backdrop-blur-sm">
       <div className="bg-light-card dark:bg-dark-bg rounded-xl shadow-2xl p-6 w-full max-w-md m-4 relative" onClick={(e) => e.stopPropagation()}>
@@ -146,11 +177,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
           </div>
           <div>
             <label htmlFor="photo1" className="block text-sm font-medium text-gray-700 dark:text-gray-300">URL фото 1 (обязательно)</label>
-            <input type="url" name="photo1" id="photo1" value={formData.photos[0]} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+            <div className="mt-1 flex items-center gap-4">
+                <ImagePreview url={formData.photos[0]} index={0} />
+                <input type="url" name="photo1" id="photo1" value={formData.photos[0]} onChange={handleChange} required className="block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+            </div>
+            {imageErrors[0] && formData.photos[0] && <p className="mt-1 text-xs text-red-500">Не удалось загрузить изображение.</p>}
           </div>
            <div>
             <label htmlFor="photo2" className="block text-sm font-medium text-gray-700 dark:text-gray-300">URL фото 2 (опционально)</label>
-            <input type="url" name="photo2" id="photo2" value={formData.photos[1]} onChange={handleChange} className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+            <div className="mt-1 flex items-center gap-4">
+                <ImagePreview url={formData.photos[1]} index={1} />
+                <input type="url" name="photo2" id="photo2" value={formData.photos[1]} onChange={handleChange} className="block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+            </div>
+            {imageErrors[1] && formData.photos[1] && <p className="mt-1 text-xs text-red-500">Не удалось загрузить изображение.</p>}
           </div>
           <div className="flex justify-end gap-4 pt-4">
             <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg bg-gray-200 dark:bg-gray-600 hover:bg-gray-300 dark:hover:bg-gray-500 transition-colors">Отмена</button>

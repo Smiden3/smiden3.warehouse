@@ -14,15 +14,18 @@ import { CartModal } from './components/CartModal';
 import { InvoiceHistoryModal } from './components/InvoiceHistoryModal';
 import { InvoiceDetailModal } from './components/InvoiceDetailModal';
 import { RevenueModal } from './components/RevenueModal';
-import { ImageLightbox } from './components/ImageLightbox';
+import { FullscreenImage } from './components/FullscreenImage';
 import { ReceiptModal } from './components/ReceiptModal';
 import { LedgerModal } from './components/LedgerModal';
+import { ConfirmDialog } from './components/ConfirmDialog';
 import { generateInvoicePDF } from './utils/pdfGenerator';
 import {
   SunIcon, MoonIcon, GridIcon, ListIcon, PlusIcon,
   BoxIcon, WarningIcon, MoneyIcon, ChevronLeftIcon, ChevronRightIcon,
   ArrowUpIcon, ArrowDownIcon, CartIcon, HistoryIcon, TrendingUpIcon, ExitFill, ArchiveBoxArrowDownIcon, RoundPendingActions
 } from './constants';
+import { ProductCardSkeleton } from './components/ProductCardSkeleton';
+import { ProductListItemSkeleton } from './components/ProductListItemSkeleton';
 
 const initialProducts: Product[] = [
   { id: 'item-001', name: 'Беспроводные наушники Pro', category: 'Электроника', quantity: 25, price: 12500, photos: ['https://placehold.co/400x400/94a3b8/FFFFFF/png?text=Product+1', 'https://placehold.co/400x400/94a3b8/c084fc/png?text=Side+View'] },
@@ -54,17 +57,12 @@ const logoUrl = 'https://i.postimg.cc/1tdy0QLp/reve-v1.png';
 type ViewMode = 'grid' | 'list';
 const ITEMS_PER_PAGE = 20;
 
-interface LightboxState {
-  images: string[];
-  currentIndex: number;
-}
-
 const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`;
 
 const App: React.FC = () => {
-  const { user, loading } = useAuth();
+  const { user, loading: authLoading } = useAuth();
 
-  if (loading) {
+  if (authLoading) {
     return (
       <div className="min-h-screen bg-light-bg dark:bg-dark-bg flex items-center justify-center">
         <div className="text-xl font-semibold text-light-text dark:text-dark-text">Загрузка...</div>
@@ -79,15 +77,9 @@ const App: React.FC = () => {
   const { theme, toggleTheme } = useTheme();
   
   // State Initialization with localStorage
-  const [products, setProducts] = useState<Product[]>(() => {
-    try {
-      const savedProducts = localStorage.getItem('products');
-      return savedProducts ? JSON.parse(savedProducts) : initialProducts;
-    } catch (error) {
-      console.error("Error parsing products from localStorage", error);
-      return initialProducts;
-    }
-  });
+  const [products, setProducts] = useState<Product[]>([]);
+  const [productsLoading, setProductsLoading] = useState(true);
+
   const [cart, setCart] = useState<CartItem[]>(() => {
     try {
       const savedCart = localStorage.getItem('cart');
@@ -124,9 +116,25 @@ const App: React.FC = () => {
       return [];
     }
   });
+
+  // Simulate data fetching on mount
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      try {
+        const savedProducts = localStorage.getItem('products');
+        setProducts(savedProducts ? JSON.parse(savedProducts) : initialProducts);
+      } catch (error) {
+        console.error("Error parsing products from localStorage", error);
+        setProducts(initialProducts);
+      }
+      setProductsLoading(false);
+    }, 1500); // Simulate 1.5 second loading time
+
+    return () => clearTimeout(timer);
+  }, []);
   
   // Save to localStorage whenever state changes
-  useEffect(() => { localStorage.setItem('products', JSON.stringify(products)); }, [products]);
+  useEffect(() => { if(!productsLoading) localStorage.setItem('products', JSON.stringify(products)); }, [products, productsLoading]);
   useEffect(() => { localStorage.setItem('cart', JSON.stringify(cart)); }, [cart]);
   useEffect(() => { localStorage.setItem('invoices', JSON.stringify(invoices)); }, [invoices]);
   useEffect(() => { localStorage.setItem('receipts', JSON.stringify(receipts)); }, [receipts]);
@@ -140,7 +148,7 @@ const App: React.FC = () => {
   const [sortDirection, setSortDirection] = useState<SortDirection>('asc');
   const [selectedCategory, setSelectedCategory] = useState<string>('Все категории');
   const [shouldDownloadPdf, setShouldDownloadPdf] = useState(true);
-  const [lightboxState, setLightboxState] = useState<LightboxState | null>(null);
+  const [lightboxState, setLightboxState] = useState<{ images: string[], currentIndex: number, alt: string } | null>(null);
 
   // Modal States
   const [isProductModalOpen, setIsProductModalOpen] = useState(false);
@@ -152,6 +160,11 @@ const App: React.FC = () => {
   const [isLedgerModalOpen, setIsLedgerModalOpen] = useState(false);
   const [isRevenueModalOpen, setIsRevenueModalOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
+  const [confirmState, setConfirmState] = useState<
+    | { type: 'single'; productId: string; message: string }
+    | { type: 'bulk'; message: string }
+    | null
+  >(null);
 
   const categories = useMemo(() => {
     const uniqueCategories = [...new Set(products.map(p => p.category))];
@@ -371,61 +384,60 @@ const App: React.FC = () => {
   const handleOpenAddModal = () => { setProductToEdit(null); setIsProductModalOpen(true); };
   
   const handleDeleteProduct = useCallback((productId: string) => {
-    if (!window.confirm('Вы уверены?')) return;
-
-    const productToDelete = products.find(p => p.id === productId);
-    const newProducts = products.filter(p => p.id !== productId);
-    
-    if (productToDelete) {
-      const entry: LedgerEntry = {
-        timestamp: new Date().toISOString(),
-        productId: productToDelete.id,
-        productName: productToDelete.name,
-        type: 'delete',
-        quantityChange: -productToDelete.quantity,
-        beforeQuantity: productToDelete.quantity,
-        afterQuantity: 0,
-      };
-      setLedger(l => [entry, ...l]);
-    }
-    
-    setProducts(newProducts);
-    setCart(prev => prev.filter(item => item.productId !== productId));
-    setSelectedProducts(prev => prev.filter(id => id !== productId));
-  }, [products]);
+    setConfirmState({ type: 'single', productId, message: 'Вы уверены, что хотите удалить этот товар?' });
+  }, []);
 
   const handleDeleteSelected = useCallback(() => {
-    if (selectedProducts.length === 0 || !window.confirm(`Удалить ${selectedProducts.length} товар(ов)?`)) {
-      return;
-    }
+    if (selectedProducts.length === 0) return;
+    setConfirmState({ type: 'bulk', message: `Удалить ${selectedProducts.length} товар(ов)?` });
+  }, [selectedProducts]);
+  
+  const performDeletion = useCallback(() => {
+    if (!confirmState) return;
 
-    const productsToDeleteSet = new Set(selectedProducts);
-    const newLedgerEntries: LedgerEntry[] = [];
-
-    products.forEach(p => {
-      if (productsToDeleteSet.has(p.id)) {
-        newLedgerEntries.push({
+    if (confirmState.type === 'single') {
+      const productId = confirmState.productId;
+      const productToDelete = products.find(p => p.id === productId);
+      const newProducts = products.filter(p => p.id !== productId);
+      if (productToDelete) {
+        const entry: LedgerEntry = {
           timestamp: new Date().toISOString(),
-          productId: p.id,
-          productName: p.name,
+          productId: productToDelete.id,
+          productName: productToDelete.name,
           type: 'delete',
-          quantityChange: -p.quantity,
-          beforeQuantity: p.quantity,
+          quantityChange: -productToDelete.quantity,
+          beforeQuantity: productToDelete.quantity,
           afterQuantity: 0,
-        });
+        };
+        setLedger(l => [entry, ...l]);
       }
-    });
-
-    const remainingProducts = products.filter(p => !productsToDeleteSet.has(p.id));
-
-    if (newLedgerEntries.length > 0) {
-      setLedger(prevLedger => [...newLedgerEntries, ...prevLedger]);
+      setProducts(newProducts);
+      setCart(prev => prev.filter(i => i.productId !== productId));
+      setSelectedProducts(prev => prev.filter(id => id !== productId));
+    } else {
+      const setIds = new Set(selectedProducts);
+      const newLedgerEntries: LedgerEntry[] = [];
+      products.forEach(p => {
+        if (setIds.has(p.id)) {
+          newLedgerEntries.push({
+            timestamp: new Date().toISOString(),
+            productId: p.id,
+            productName: p.name,
+            type: 'delete',
+            quantityChange: -p.quantity,
+            beforeQuantity: p.quantity,
+            afterQuantity: 0,
+          });
+        }
+      });
+      if (newLedgerEntries.length) setLedger(prev => [...newLedgerEntries, ...prev]);
+      setProducts(prev => prev.filter(p => !setIds.has(p.id)));
+      setCart(prev => prev.filter(i => !setIds.has(i.productId)));
+      setSelectedProducts([]);
     }
-    setProducts(remainingProducts);
-    setCart(prevCart => prevCart.filter(item => !productsToDeleteSet.has(item.productId)));
-    setSelectedProducts([]);
-    
-  }, [products, selectedProducts]);
+
+    setConfirmState(null);
+  }, [confirmState, products, selectedProducts]);
   
   const handleSaveProduct = useCallback((productData: Omit<Product, 'id' | 'photos'> & { id?: string; photos: string[] }) => {
     const finalPhotos = productData.photos.filter(p => p && p.trim() !== '');
@@ -496,27 +508,25 @@ const App: React.FC = () => {
     setIsProductModalOpen(false);
   }, [products]);
   
-  const handleImageClick = (images: string[], startIndex: number) => {
-    setLightboxState({ images, currentIndex: startIndex });
+  const handleImageClick = (images: string[], startIndex: number, productName: string) => {
+    setLightboxState({ images, currentIndex: startIndex, alt: productName });
   };
 
-  const handleLightboxClose = () => setLightboxState(null);
-
-  const handleLightboxNext = () => {
-    setLightboxState(prev => {
-      if (!prev) return null;
-      const nextIndex = (prev.currentIndex + 1) % prev.images.length;
-      return { ...prev, currentIndex: nextIndex };
+  const handleLightboxNext = useCallback(() => {
+    setLightboxState(prevState => {
+      if (!prevState || prevState.images.length <= 1) return prevState;
+      const nextIndex = (prevState.currentIndex + 1) % prevState.images.length;
+      return { ...prevState, currentIndex: nextIndex };
     });
-  };
+  }, []);
 
-  const handleLightboxPrev = () => {
-    setLightboxState(prev => {
-      if (!prev) return null;
-      const prevIndex = (prev.currentIndex - 1 + prev.images.length) % prev.images.length;
-      return { ...prev, currentIndex: prevIndex };
+  const handleLightboxPrev = useCallback(() => {
+    setLightboxState(prevState => {
+      if (!prevState || prevState.images.length <= 1) return prevState;
+      const prevIndex = (prevState.currentIndex - 1 + prevState.images.length) % prevState.images.length;
+      return { ...prevState, currentIndex: prevIndex };
     });
-  };
+  }, []);
 
   const SortButton = ({ sortValue, label }: { sortValue: SortKey, label: string }) => (
      <button 
@@ -528,6 +538,22 @@ const App: React.FC = () => {
         {sortKey === sortValue && (sortDirection === 'asc' ? <ArrowUpIcon className="h-4 w-4" /> : <ArrowDownIcon className="h-4 w-4" />)}
       </button>
   );
+  
+  const SkeletonViews = () => (
+    <>
+      {viewMode === 'grid' ? (
+        <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
+          {Array.from({ length: 8 }).map((_, i) => <ProductCardSkeleton key={i} />)}
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="hidden md:grid grid-cols-12 items-center p-3 text-xs font-bold text-gray-500 dark:text-gray-400 uppercase"><div className="col-span-5 pl-10">Товар</div><div className="col-span-2">Категория</div><div className="col-span-5 grid grid-cols-4 items-center"><div className="col-span-1 text-center">Запас</div><div className="col-span-1 text-right">Цена</div><div className="col-span-2 text-center">В корзину</div></div><div className="col-span-1"></div></div>
+          {Array.from({ length: 8 }).map((_, i) => <ProductListItemSkeleton key={i} />)}
+        </div>
+      )}
+    </>
+  );
+
 
   return (
     <div className="min-h-screen bg-light-bg dark:bg-dark-bg text-light-text dark:text-dark-text font-sans">
@@ -605,8 +631,11 @@ const App: React.FC = () => {
           </div>
           
           {/* Product List/Grid */}
-          {paginatedProducts.length === 0 && <div className="text-center py-16"><p className="text-gray-500 dark:text-gray-400">Товары не найдены.</p></div>}
-          {viewMode === 'grid' ? (
+          {productsLoading ? (
+            <SkeletonViews />
+          ) : paginatedProducts.length === 0 ? (
+            <div className="text-center py-16"><p className="text-gray-500 dark:text-gray-400">Товары не найдены.</p></div>
+          ) : viewMode === 'grid' ? (
             <div className="grid grid-cols-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-2 sm:gap-4">
               {paginatedProducts.map(product => <ProductCard key={product.id} product={product} isSelected={selectedProducts.includes(product.id)} onSelect={handleSelectProduct} onEdit={handleOpenEditModal} onDelete={handleDeleteProduct} onImageClick={handleImageClick} cartQuantity={cart.find(item => item.productId === product.id)?.quantity ?? 0} onCartChange={(qty) => handleCartChange(product.id, qty)} />)}
             </div>
@@ -618,7 +647,7 @@ const App: React.FC = () => {
           )}
 
           {/* Pagination */}
-          {totalPages > 1 && (
+          {!productsLoading && totalPages > 1 && (
             <div className="flex items-center justify-between mt-6 pt-4 border-t border-gray-200 dark:border-gray-700">
                 <span className="text-sm text-gray-500 dark:text-gray-400">Страница {currentPage} из {totalPages}</span>
                 <div className="flex items-center space-x-2"><button type="button" onClick={() => setCurrentPage(p => Math.max(p - 1, 1))} disabled={currentPage === 1} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600"><ChevronLeftIcon className="h-5 w-5" /></button><button type="button" onClick={() => setCurrentPage(p => Math.min(p + 1, totalPages))} disabled={currentPage === totalPages} className="p-2 rounded-md bg-gray-200 dark:bg-gray-700 disabled:opacity-50 hover:bg-gray-300 dark:hover:bg-gray-600"><ChevronRightIcon className="h-5 w-5" /></button></div>
@@ -668,13 +697,21 @@ const App: React.FC = () => {
         monthlyData={revenueStats.monthlyData}
         monthlyTotal={revenueStats.monthlyTotal}
       />
-      <ImageLightbox 
-        isOpen={!!lightboxState}
-        images={lightboxState?.images ?? []}
-        currentIndex={lightboxState?.currentIndex ?? 0}
-        onClose={handleLightboxClose}
-        onNext={handleLightboxNext}
-        onPrev={handleLightboxPrev}
+      {lightboxState && (
+        <FullscreenImage
+          images={lightboxState.images}
+          currentIndex={lightboxState.currentIndex}
+          alt={lightboxState.alt}
+          onClose={() => setLightboxState(null)}
+          onNext={handleLightboxNext}
+          onPrev={handleLightboxPrev}
+        />
+      )}
+      <ConfirmDialog
+        open={!!confirmState}
+        message={confirmState?.message ?? ''}
+        onCancel={() => setConfirmState(null)}
+        onConfirm={performDeletion}
       />
     </div>
   );

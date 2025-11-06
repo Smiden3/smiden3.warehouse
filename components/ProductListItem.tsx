@@ -9,7 +9,7 @@ interface ProductListItemProps {
   onSelect: (productId: string) => void;
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
-  onImageClick: (images: string[], startIndex: number) => void;
+  onImageClick: (images: string[], startIndex: number, productName: string) => void;
   cartQuantity: number;
   onCartChange: (newQuantity: number) => void;
 }
@@ -42,7 +42,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         />
         <button 
           type="button"
-          onClick={() => onImageClick(product.photos, 0)} 
+          onClick={() => onImageClick(product.photos, 0, product.name)} 
           className="focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-light-accent dark:focus:ring-dark-accent rounded-lg flex-shrink-0"
           aria-label={`Просмотреть изображение ${product.name}`}
         >

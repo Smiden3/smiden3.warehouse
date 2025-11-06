@@ -9,7 +9,7 @@ interface ProductCardProps {
   onSelect: (productId: string) => void;
   onEdit: (product: Product) => void;
   onDelete: (productId: string) => void;
-  onImageClick: (images: string[], startIndex: number) => void;
+  onImageClick: (images: string[], startIndex: number, productName: string) => void;
   cartQuantity: number;
   onCartChange: (newQuantity: number) => void;
 }
@@ -31,7 +31,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   }, [product.id]);
 
   const handleImageContainerClick = () => {
-    onImageClick(product.photos, currentImageIndex);
+    onImageClick(product.photos, currentImageIndex, product.name);
   };
 
   const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`;
@@ -66,7 +66,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           className="h-5 w-5 rounded border-gray-300 text-light-accent focus:ring-light-accent dark:bg-gray-700 dark:border-gray-600 pointer-events-none"
         />
       </div>
-      <div className="absolute top-2 right-2 z-20 flex gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity">
+      <div className="absolute top-2 right-2 z-20 flex gap-1.5 opacity-100 md:opacity-0 md:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
         <button 
           type="button"
           onClick={(e) => { e.stopPropagation(); onEdit(product); }} 
@@ -86,7 +86,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       </div>
 
       <div
-        className="aspect-square relative w-full overflow-hidden cursor-pointer"
+        className="aspect-square relative w-full overflow-hidden cursor-pointer bg-gray-100 dark:bg-gray-700/50"
         onClick={handleImageContainerClick}
         onMouseLeave={() => {
           if (product.photos && product.photos.length > 1) {
@@ -97,7 +97,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
         <img 
             src={product.photos[currentImageIndex] || 'https://placehold.co/400x400/cccccc/FFFFFF/png?text=No+Image'} 
             alt={product.name} 
-            className="w-full h-full object-cover transition-all duration-300 group-hover:scale-105" 
+            className="w-full h-full object-contain transition-all duration-300" 
         />
         
         {product.photos && product.photos.length > 1 && (
