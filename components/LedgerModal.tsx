@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import type { LedgerEntry } from '../types';
 import { ChevronLeftIcon, ChevronRightIcon } from '../constants';
+import type { Timestamp } from 'firebase/firestore';
 
 interface LedgerModalProps {
   isOpen: boolean;
@@ -24,9 +25,8 @@ export const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, ledge
   const [selectedDate, setSelectedDate] = useState(new Date());
 
   const entriesForSelectedDate = useMemo(() => {
-    return ledger
-      .filter(entry => isSameDay(new Date(entry.timestamp), selectedDate))
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+    return ledger.filter(entry => isSameDay(entry.timestamp.toDate(), selectedDate));
+      // Sorting is now handled by the firestore query
   }, [ledger, selectedDate]);
 
   const goToPreviousDay = () => setSelectedDate(prev => {
@@ -99,8 +99,8 @@ export const LedgerModal: React.FC<LedgerModalProps> = ({ isOpen, onClose, ledge
             </div>
           {entriesForSelectedDate.length > 0 ? (
             entriesForSelectedDate.map(entry => (
-              <div key={entry.timestamp + entry.productId} className="grid grid-cols-12 items-center gap-4 p-3 rounded-lg bg-light-bg dark:bg-dark-glass text-sm">
-                <div className="col-span-12 md:col-span-1 text-gray-500 dark:text-gray-400">{new Date(entry.timestamp).toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
+              <div key={entry.timestamp.toMillis() + entry.productId} className="grid grid-cols-12 items-center gap-4 p-3 rounded-lg bg-light-bg dark:bg-dark-glass text-sm">
+                <div className="col-span-12 md:col-span-1 text-gray-500 dark:text-gray-400">{entry.timestamp.toDate().toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' })}</div>
                 <div className="col-span-12 md:col-span-4">
                   <p className="font-semibold text-light-text dark:text-dark-text truncate">{entry.productName}</p>
                   <p className="text-xs text-gray-500 dark:text-gray-400">{`Арт: ${entry.productId}`}</p>

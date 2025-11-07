@@ -1,10 +1,12 @@
 import type { User } from 'firebase/auth';
+import type { Timestamp } from 'firebase/firestore';
 
 export type Theme = 'light' | 'dark';
 export type FirebaseUser = User;
 
 export interface Product {
   id: string;
+  sku: string;
   name: string;
   category: string;
   quantity: number;
@@ -26,7 +28,7 @@ export interface InvoiceItem {
 
 export interface Invoice {
   id: string;
-  createdAt: string;
+  createdAt: Timestamp;
   items: InvoiceItem[];
   total: number;
 }
@@ -40,12 +42,12 @@ export interface ReceiptItem {
 
 export interface Receipt {
   id: string;
-  createdAt: string;
+  createdAt: Timestamp;
   items: ReceiptItem[];
 }
 
 export interface LedgerEntry {
-  timestamp: string; // ISO string
+  timestamp: Timestamp;
   productId: string;
   productName: string;
   type: 'invoice' | 'receipt' | 'edit' | 'delete';

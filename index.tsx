@@ -1,9 +1,9 @@
-
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from './App';
 import { ThemeProvider } from './hooks/useTheme';
 import { AuthProvider } from './hooks/useAuth';
+import { FirestoreProvider } from './hooks/useFirestore';
 
 const rootElement = document.getElementById('root');
 if (!rootElement) {
@@ -15,7 +15,9 @@ root.render(
   <React.StrictMode>
     <ThemeProvider>
       <AuthProvider>
-        <App />
+        <FirestoreProvider>
+          <App />
+        </FirestoreProvider>
       </AuthProvider>
     </ThemeProvider>
   </React.StrictMode>

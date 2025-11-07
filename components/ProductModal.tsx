@@ -13,6 +13,7 @@ interface ProductModalProps {
 // Allow string for temporary user input in numeric fields
 type FormDataState = {
   name: string;
+  sku: string;
   category: string;
   quantity: number | string;
   price: number | string;
@@ -22,6 +23,7 @@ type FormDataState = {
 
 const initialFormState: FormDataState = {
     name: '',
+    sku: '',
     category: '',
     quantity: 0,
     price: 0,
@@ -38,6 +40,7 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
         if (productToEdit) {
           setFormData({
             name: productToEdit.name,
+            sku: productToEdit.sku,
             category: productToEdit.category,
             quantity: productToEdit.quantity,
             price: productToEdit.price,
@@ -146,6 +149,19 @@ export const ProductModal: React.FC<ProductModalProps> = ({ isOpen, onClose, onS
           <div>
             <label htmlFor="name" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Наименование</label>
             <input type="text" name="name" id="name" value={formData.name} onChange={handleChange} required className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent" />
+          </div>
+           <div>
+            <label htmlFor="sku" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Артикул (SKU)</label>
+            <input 
+              type="text" 
+              name="sku" 
+              id="sku" 
+              value={formData.sku} 
+              onChange={handleChange} 
+              required 
+              readOnly={!!productToEdit} 
+              className="mt-1 block w-full px-3 py-2 rounded-lg border bg-gray-100 dark:bg-gray-700 dark:border-gray-600 focus:outline-none focus:ring-2 focus:ring-light-accent dark:focus:ring-dark-accent read-only:bg-gray-200 dark:read-only:bg-gray-800 read-only:cursor-not-allowed" 
+            />
           </div>
           <div>
             <label htmlFor="category" className="block text-sm font-medium text-gray-700 dark:text-gray-300">Категория</label>

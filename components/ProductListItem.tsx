@@ -50,7 +50,7 @@ export const ProductListItem: React.FC<ProductListItemProps> = ({
         </button>
         <div>
           <p className="font-semibold text-light-text dark:text-dark-text truncate">{product.name}</p>
-          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{product.id}</p>
+          <p className="text-xs text-gray-500 dark:text-gray-400 truncate">{product.sku}</p>
         </div>
       </div>
       

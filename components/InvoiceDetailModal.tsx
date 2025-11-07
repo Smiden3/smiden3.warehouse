@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Invoice } from '../types';
+import type { Timestamp } from 'firebase/firestore';
 
 interface InvoiceDetailModalProps {
   isOpen: boolean;
@@ -11,7 +12,7 @@ export const InvoiceDetailModal: React.FC<InvoiceDetailModalProps> = ({ isOpen, 
   if (!isOpen || !invoice) return null;
 
   const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`;
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleString('ru-RU');
+  const formatDate = (timestamp: Timestamp) => timestamp.toDate().toLocaleString('ru-RU');
 
   return (
     <div className="fixed inset-0 bg-black/70 z-[60] flex justify-center items-center backdrop-blur-sm" onClick={onClose}>

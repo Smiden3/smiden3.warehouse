@@ -1,5 +1,6 @@
 import React from 'react';
 import type { Invoice } from '../types';
+import type { Timestamp } from 'firebase/firestore';
 
 interface InvoiceHistoryModalProps {
   isOpen: boolean;
@@ -12,7 +13,7 @@ export const InvoiceHistoryModal: React.FC<InvoiceHistoryModalProps> = ({ isOpen
   if (!isOpen) return null;
 
   const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} ₽`;
-  const formatDate = (dateString: string) => new Date(dateString).toLocaleString('ru-RU');
+  const formatDate = (timestamp: Timestamp) => timestamp.toDate().toLocaleString('ru-RU');
 
   return (
     <div className="fixed inset-0 bg-black/60 z-50 flex justify-center items-center backdrop-blur-sm" onClick={onClose}>
@@ -21,7 +22,7 @@ export const InvoiceHistoryModal: React.FC<InvoiceHistoryModalProps> = ({ isOpen
         
         <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-2">
           {invoices.length > 0 ? (
-            [...invoices].reverse().map(invoice => (
+            invoices.map(invoice => (
               <button 
                 key={invoice.id} 
                 onClick={() => onViewInvoice(invoice)}

@@ -1,7 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react';
-import type { Product, SortKey, SortDirection, CartItem, Invoice, InvoiceItem, Receipt, ReceiptItem, LedgerEntry } from './types';
+import type { Product, SortKey, SortDirection, CartItem, Invoice, Receipt } from './types';
 import { useTheme } from './hooks/useTheme';
 import { useAuth } from './hooks/useAuth';
+import { useFirestore } from './hooks/useFirestore';
 import { auth } from './firebase';
 import { signOut } from 'firebase/auth';
 import { Auth } from './components/Auth';
@@ -27,31 +28,6 @@ import {
 import { ProductCardSkeleton } from './components/ProductCardSkeleton';
 import { ProductListItemSkeleton } from './components/ProductListItemSkeleton';
 
-const initialProducts: Product[] = [
-  { id: 'item-001', name: 'Беспроводные наушники Pro', category: 'Электроника', quantity: 25, price: 12500, photos: ['https://placehold.co/400x400/94a3b8/FFFFFF/png?text=Product+1', 'https://placehold.co/400x400/94a3b8/c084fc/png?text=Side+View'] },
-  { id: 'item-002', name: 'Смарт-часы FitTrack 2', category: 'Электроника', quantity: 4, price: 8900, photos: ['https://placehold.co/400x400/7c3aed/FFFFFF/png?text=Product+2'] },
-  { id: 'item-003', name: 'Органический кофе "Утро"', category: 'Продукты', quantity: 50, price: 750, photos: ['https://placehold.co/400x400/fb923c/FFFFFF/png?text=Product+3', 'https://placehold.co/400x400/fb923c/eab308/png?text=In+Cup'] },
-  { id: 'item-004', name: 'Набор инструментов "Мастер"', category: 'Дом и сад', quantity: 12, price: 3200, photos: ['https://placehold.co/400x400/34d399/FFFFFF/png?text=Product+4'] },
-  { id: 'item-005', name: 'Книга "История будущего"', category: 'Книги', quantity: 2, price: 1100, photos: ['https://placehold.co/400x400/f87171/FFFFFF/png?text=Product+5', 'https://placehold.co/400x400/f87171/fca5a5/png?text=Open+Book'] },
-  { id: 'item-006', name: 'Рюкзак для путешествий', category: 'Аксессуары', quantity: 30, price: 4500, photos: ['https://placehold.co/400x400/60a5fa/FFFFFF/png?text=Product+6'] },
-  { id: 'item-007', name: 'Геймерская мышь X-Ceed', category: 'Электроника', quantity: 8, price: 5600, photos: ['https://placehold.co/400x400/c084fc/FFFFFF/png?text=Product+7'] },
-  { id: 'item-008', name: 'Чайник электрический "Aqua"', category: 'Бытовая техника', quantity: 18, price: 2100, photos: ['https://placehold.co/400x400/4ade80/FFFFFF/png?text=Product+8'] },
-  { id: 'item-009', name: 'Фитнес-браслет Pulse', category: 'Электроника', quantity: 40, price: 3400, photos: ['https://placehold.co/400x400/f472b6/FFFFFF/png?text=Product+9'] },
-  { id: 'item-010', name: 'Коврик для йоги "Zen"', category: 'Спорт', quantity: 22, price: 1500, photos: ['https://placehold.co/400x400/22d3ee/FFFFFF/png?text=Product+10'] },
-  { id: 'item-011', name: 'Термос "Everest"', category: 'Аксессуары', quantity: 15, price: 1900, photos: ['https://placehold.co/400x400/a78bfa/FFFFFF/png?text=Product+11'] },
-  { id: 'item-012', name: 'Настольная лампа "Lumo"', category: 'Дом и сад', quantity: 3, price: 2800, photos: ['https://placehold.co/400x400/facc15/FFFFFF/png?text=Product+12'] },
-  { id: 'item-013', name: 'Внешний аккумулятор PowerUp', category: 'Электроника', quantity: 60, price: 3100, photos: ['https://placehold.co/400x400/818cf8/FFFFFF/png?text=Product+13'] },
-  { id: 'item-014', name: 'Скетчбук "Artist Pro"', category: 'Канцтовары', quantity: 100, price: 950, photos: ['https://placehold.co/400x400/e879f9/FFFFFF/png?text=Product+14'] },
-  { id: 'item-015', name: 'Bluetooth-колонка "SoundWave"', category: 'Электроника', quantity: 1, price: 6200, photos: ['https://placehold.co/400x400/38bdf8/FFFFFF/png?text=Product+15'] },
-  { id: 'item-016', name: 'Ортопедическая подушка', category: 'Дом и сад', quantity: 28, price: 4100, photos: ['https://placehold.co/400x400/4ade80/FFFFFF/png?text=Product+16'] },
-  { id: 'item-017', name: 'Дрон "SkyExplorer"', category: 'Электроника', quantity: 7, price: 25000, photos: ['https://placehold.co/400x400/fb7185/FFFFFF/png?text=Product+17'] },
-  { id: 'item-018', name: 'Электронная книга "ReadEasy"', category: 'Электроника', quantity: 19, price: 9800, photos: ['https://placehold.co/400x400/a3e635/FFFFFF/png?text=Product+18'] },
-  { id: 'item-019', name: 'Набор для рисования "Colors"', category: 'Хобби', quantity: 35, price: 2400, photos: ['https://placehold.co/400x400/2dd4bf/FFFFFF/png?text=Product+19'] },
-  { id: 'item-020', name: 'Умные весы "BodyScale"', category: 'Бытовая техника', quantity: 11, price: 3800, photos: ['https://placehold.co/400x400/6366f1/FFFFFF/png?text=Product+20'] },
-  { id: 'item-021', name: 'Игровая клавиатура "MechType"', category: 'Электроника', quantity: 9, price: 7200, photos: ['https://placehold.co/400x400/8b5cf6/FFFFFF/png?text=Product+21'] },
-  { id: 'item-022', name: 'Проектор "CinemaHome"', category: 'Электроника', quantity: 6, price: 18500, photos: ['https://placehold.co/400x400/d946ef/FFFFFF/png?text=Product+22'] },
-];
-
 const logoUrl = 'https://i.postimg.cc/1tdy0QLp/reve-v1.png';
 
 type ViewMode = 'grid' | 'list';
@@ -61,6 +37,10 @@ const formatCurrency = (amount: number) => `${amount.toLocaleString('ru-RU')} �
 
 const App: React.FC = () => {
   const { user, loading: authLoading } = useAuth();
+  const { 
+    products, invoices, receipts, ledger, loading: productsLoading,
+    addProduct, updateProduct, deleteProduct, deleteProducts, createInvoice, createReceipt 
+  } = useFirestore();
 
   if (authLoading) {
     return (
@@ -76,69 +56,7 @@ const App: React.FC = () => {
   
   const { theme, toggleTheme } = useTheme();
   
-  // State Initialization with localStorage
-  const [products, setProducts] = useState<Product[]>([]);
-  const [productsLoading, setProductsLoading] = useState(true);
-
-  const [cart, setCart] = useState<CartItem[]>(() => {
-    try {
-      const savedCart = localStorage.getItem('cart');
-      return savedCart ? JSON.parse(savedCart) : [];
-    } catch (error) {
-      console.error("Error parsing cart from localStorage", error);
-      return [];
-    }
-  });
-  const [invoices, setInvoices] = useState<Invoice[]>(() => {
-    try {
-      const savedInvoices = localStorage.getItem('invoices');
-      return savedInvoices ? JSON.parse(savedInvoices) : [];
-    } catch (error) {
-      console.error("Error parsing invoices from localStorage", error);
-      return [];
-    }
-  });
-   const [receipts, setReceipts] = useState<Receipt[]>(() => {
-    try {
-      const savedReceipts = localStorage.getItem('receipts');
-      return savedReceipts ? JSON.parse(savedReceipts) : [];
-    } catch (error) {
-      console.error("Error parsing receipts from localStorage", error);
-      return [];
-    }
-  });
-  const [ledger, setLedger] = useState<LedgerEntry[]>(() => {
-    try {
-      const savedLedger = localStorage.getItem('ledger');
-      return savedLedger ? JSON.parse(savedLedger) : [];
-    } catch (error) {
-      console.error("Error parsing ledger from localStorage", error);
-      return [];
-    }
-  });
-
-  // Simulate data fetching on mount
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      try {
-        const savedProducts = localStorage.getItem('products');
-        setProducts(savedProducts ? JSON.parse(savedProducts) : initialProducts);
-      } catch (error) {
-        console.error("Error parsing products from localStorage", error);
-        setProducts(initialProducts);
-      }
-      setProductsLoading(false);
-    }, 1500); // Simulate 1.5 second loading time
-
-    return () => clearTimeout(timer);
-  }, []);
-  
-  // Save to localStorage whenever state changes
-  useEffect(() => { if(!productsLoading) localStorage.setItem('products', JSON.stringify(products)); }, [products, productsLoading]);
-  useEffect(() => { localStorage.setItem('cart', JSON.stringify(cart)); }, [cart]);
-  useEffect(() => { localStorage.setItem('invoices', JSON.stringify(invoices)); }, [invoices]);
-  useEffect(() => { localStorage.setItem('receipts', JSON.stringify(receipts)); }, [receipts]);
-  useEffect(() => { localStorage.setItem('ledger', JSON.stringify(ledger)); }, [ledger]);
+  const [cart, setCart] = useState<CartItem[]>([]);
   
   const [viewMode, setViewMode] = useState<ViewMode>('grid');
   const [selectedProducts, setSelectedProducts] = useState<string[]>([]);
@@ -173,7 +91,7 @@ const App: React.FC = () => {
 
   const filteredProducts = useMemo(() =>
     products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.id.toLowerCase().includes(searchTerm.toLowerCase());
+        const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase()) || p.sku.toLowerCase().includes(searchTerm.toLowerCase());
         const matchesCategory = selectedCategory === 'Все категории' ? true : p.category === selectedCategory;
         return matchesSearch && matchesCategory;
     }), 
@@ -209,8 +127,7 @@ const App: React.FC = () => {
 
   const revenueStats = useMemo(() => {
     const now = new Date();
-    const invoicesSorted = [...invoices].sort((a, b) => new Date(a.createdAt).getTime() - new Date(b.createdAt).getTime());
-
+    
     const dailyData: { label: string; value: number }[] = [];
     let dailyTotal = 0;
     const weekDayFormatter = new Intl.DateTimeFormat('ru-RU', { weekday: 'short' });
@@ -223,8 +140,8 @@ const App: React.FC = () => {
         });
     }
     
-    invoicesSorted.forEach(invoice => {
-        const invoiceDate = new Date(invoice.createdAt);
+    invoices.forEach(invoice => {
+        const invoiceDate = invoice.createdAt.toDate();
         const diffDays = Math.floor((now.getTime() - invoiceDate.getTime()) / (1000 * 60 * 60 * 24));
         if (diffDays < 7) {
             const dayIndex = 6 - diffDays;
@@ -247,8 +164,8 @@ const App: React.FC = () => {
         });
     }
 
-    invoicesSorted.forEach(invoice => {
-        const invoiceDate = new Date(invoice.createdAt);
+    invoices.forEach(invoice => {
+        const invoiceDate = invoice.createdAt.toDate();
         const diffMonths = (now.getFullYear() - invoiceDate.getFullYear()) * 12 + (now.getMonth() - invoiceDate.getMonth());
         if (diffMonths >= 0 && diffMonths < 12) {
             const monthIndex = 11 - diffMonths;
@@ -284,84 +201,22 @@ const App: React.FC = () => {
     });
   }, [products]);
   
- const handleCreateInvoice = useCallback(() => {
+ const handleCreateInvoice = useCallback(async () => {
     if (cart.length === 0) return;
-
-    const newInvoiceItems: InvoiceItem[] = [];
-    const newLedgerEntries: LedgerEntry[] = [];
-    const timestamp = new Date().toISOString();
-
-    const updatedProducts = products.map(p => {
-        const itemInCart = cart.find(item => item.productId === p.id);
-        if (itemInCart) {
-            newInvoiceItems.push({ id: p.id, name: p.name, quantity: itemInCart.quantity, price: p.price });
-            const beforeQuantity = p.quantity;
-            const afterQuantity = p.quantity - itemInCart.quantity;
-            newLedgerEntries.push({
-                timestamp, productId: p.id, productName: p.name, type: 'invoice',
-                quantityChange: -itemInCart.quantity, beforeQuantity, afterQuantity,
-            });
-            return { ...p, quantity: afterQuantity };
-        }
-        return p;
-    });
-
-    const newInvoice: Invoice = {
-        id: Date.now().toString().slice(-6),
-        createdAt: timestamp,
-        items: newInvoiceItems,
-        total: newInvoiceItems.reduce((sum, item) => sum + item.price * item.quantity, 0),
-    };
-    
-    setProducts(updatedProducts);
-    setInvoices(prev => [...prev, newInvoice]);
-    setLedger(prev => [...newLedgerEntries, ...prev]);
-    setCart([]);
-
-    if (shouldDownloadPdf) {
-        generateInvoicePDF(newInvoice);
-    }
-    setIsCartModalOpen(false);
-}, [products, cart, shouldDownloadPdf]);
-  
-  const handleCreateReceipt = useCallback((itemsToReceive: {productId: string, quantity: number}[]) => {
-    if (itemsToReceive.length === 0) return;
-
-    const timestamp = new Date().toISOString();
-    const receiptItems: ReceiptItem[] = [];
-    const newLedgerEntries: LedgerEntry[] = [];
-
-    const updatedProducts = products.map(p => {
-      const itemToReceive = itemsToReceive.find(item => item.productId === p.id);
-      if (itemToReceive && itemToReceive.quantity > 0) {
-        const beforeQuantity = p.quantity;
-        const newQuantity = beforeQuantity + itemToReceive.quantity;
-        receiptItems.push({
-          productId: p.id, name: p.name,
-          quantityAdded: itemToReceive.quantity, newQuantity: newQuantity
-        });
-        newLedgerEntries.push({
-          timestamp, productId: p.id, productName: p.name, type: 'receipt',
-          quantityChange: itemToReceive.quantity, beforeQuantity: beforeQuantity, afterQuantity: newQuantity,
-        });
-        return { ...p, quantity: newQuantity };
+    const newInvoice = await createInvoice(cart, products);
+    if (newInvoice) {
+      setCart([]);
+      if (shouldDownloadPdf) {
+          generateInvoicePDF(newInvoice);
       }
-      return p;
-    });
-
-    if (receiptItems.length > 0) {
-        const newReceipt: Receipt = {
-            id: `receipt-${Date.now().toString().slice(-6)}`,
-            createdAt: timestamp,
-            items: receiptItems
-        };
-        setProducts(updatedProducts);
-        setReceipts(prev => [newReceipt, ...prev]);
-        setLedger(prev => [...newLedgerEntries, ...prev]);
+      setIsCartModalOpen(false);
     }
-    
+}, [cart, products, createInvoice, shouldDownloadPdf]);
+  
+  const handleCreateReceipt = useCallback(async (itemsToReceive: {productId: string, quantity: number}[]) => {
+    await createReceipt(itemsToReceive);
     setIsReceiptModalOpen(false);
-  }, [products]);
+  }, [createReceipt]);
 
   const handleLogout = () => {
     signOut(auth).catch(error => console.error("Logout Error:", error));
@@ -392,54 +247,24 @@ const App: React.FC = () => {
     setConfirmState({ type: 'bulk', message: `Удалить ${selectedProducts.length} товар(ов)?` });
   }, [selectedProducts]);
   
-  const performDeletion = useCallback(() => {
+  const performDeletion = useCallback(async () => {
     if (!confirmState) return;
 
     if (confirmState.type === 'single') {
-      const productId = confirmState.productId;
-      const productToDelete = products.find(p => p.id === productId);
-      const newProducts = products.filter(p => p.id !== productId);
-      if (productToDelete) {
-        const entry: LedgerEntry = {
-          timestamp: new Date().toISOString(),
-          productId: productToDelete.id,
-          productName: productToDelete.name,
-          type: 'delete',
-          quantityChange: -productToDelete.quantity,
-          beforeQuantity: productToDelete.quantity,
-          afterQuantity: 0,
-        };
-        setLedger(l => [entry, ...l]);
-      }
-      setProducts(newProducts);
-      setCart(prev => prev.filter(i => i.productId !== productId));
-      setSelectedProducts(prev => prev.filter(id => id !== productId));
+        await deleteProduct(confirmState.productId);
+        setCart(prev => prev.filter(i => i.productId !== confirmState.productId));
+        setSelectedProducts(prev => prev.filter(id => id !== confirmState.productId));
     } else {
-      const setIds = new Set(selectedProducts);
-      const newLedgerEntries: LedgerEntry[] = [];
-      products.forEach(p => {
-        if (setIds.has(p.id)) {
-          newLedgerEntries.push({
-            timestamp: new Date().toISOString(),
-            productId: p.id,
-            productName: p.name,
-            type: 'delete',
-            quantityChange: -p.quantity,
-            beforeQuantity: p.quantity,
-            afterQuantity: 0,
-          });
-        }
-      });
-      if (newLedgerEntries.length) setLedger(prev => [...newLedgerEntries, ...prev]);
-      setProducts(prev => prev.filter(p => !setIds.has(p.id)));
-      setCart(prev => prev.filter(i => !setIds.has(i.productId)));
-      setSelectedProducts([]);
+        await deleteProducts(selectedProducts);
+        const setIds = new Set(selectedProducts);
+        setCart(prev => prev.filter(i => !setIds.has(i.productId)));
+        setSelectedProducts([]);
     }
 
     setConfirmState(null);
-  }, [confirmState, products, selectedProducts]);
+}, [confirmState, selectedProducts, deleteProduct, deleteProducts]);
   
-  const handleSaveProduct = useCallback((productData: Omit<Product, 'id' | 'photos'> & { id?: string; photos: string[] }) => {
+  const handleSaveProduct = useCallback(async (productData: Omit<Product, 'id' | 'photos'> & { id?: string; photos: string[] }) => {
     const finalPhotos = productData.photos.filter(p => p && p.trim() !== '');
     if (finalPhotos.length === 0) {
         alert('Необходимо указать хотя бы одну фотографию.');
@@ -453,60 +278,15 @@ const App: React.FC = () => {
       price: Number(productData.price) || 0,
     };
     
-    let newProducts: Product[];
-    const newLedgerEntries: LedgerEntry[] = [];
-
-    if (productToSave.id) { // Editing existing product
-      const oldProduct = products.find(p => p.id === productToSave.id);
-      newProducts = products.map(p => p.id === productToSave.id ? { ...p, ...productToSave } as Product : p);
-
-      if (oldProduct && oldProduct.quantity !== productToSave.quantity) {
-        newLedgerEntries.push({
-          timestamp: new Date().toISOString(),
-          productId: oldProduct.id,
-          productName: productToSave.name,
-          type: 'edit',
-          quantityChange: productToSave.quantity - oldProduct.quantity,
-          beforeQuantity: oldProduct.quantity,
-          afterQuantity: productToSave.quantity,
-        });
-      }
-    } else { // Adding new product
-      const categoryPrefix = productToSave.category.substring(0, 2).toUpperCase();
-      let maxNum = 0;
-      products.forEach(p => {
-        if (p.id.startsWith(categoryPrefix + '-')) {
-          const numPart = parseInt(p.id.split('-')[1], 10);
-          if (!isNaN(numPart) && numPart > maxNum) {
-            maxNum = numPart;
-          }
-        }
-      });
-      const newIdNumber = (maxNum + 1).toString().padStart(3, '0');
-      const newId = `${categoryPrefix}-${newIdNumber}`;
-      const newProduct = { ...productToSave, id: newId } as Product;
-      newProducts = [newProduct, ...products];
-
-      if (newProduct.quantity > 0) {
-        newLedgerEntries.push({
-          timestamp: new Date().toISOString(),
-          productId: newProduct.id,
-          productName: newProduct.name,
-          type: 'receipt',
-          quantityChange: newProduct.quantity,
-          beforeQuantity: 0,
-          afterQuantity: newProduct.quantity,
-        });
-      }
-    }
-    
-    setProducts(newProducts);
-    if (newLedgerEntries.length > 0) {
-      setLedger(l => [...newLedgerEntries, ...l]);
+    if (productToSave.id) {
+        await updateProduct(productToSave.id, productToSave);
+    } else {
+        const { id, ...newProductData } = productToSave;
+        await addProduct(newProductData);
     }
     
     setIsProductModalOpen(false);
-  }, [products]);
+  }, [addProduct, updateProduct]);
   
   const handleImageClick = (images: string[], startIndex: number, productName: string) => {
     setLightboxState({ images, currentIndex: startIndex, alt: productName });
